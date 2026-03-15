@@ -1,127 +1,110 @@
-# Electrify — Terraform Infrastructure
+# SentinelIQ — Multi-Agent Fraud Detection Platform
 
-Converted from the original CloudFormation template `electrify-public.yml` (DAT403-RIV2025).
-
----
-
-## Architecture Overview
-
-| Component | AWS Resource |
-|---|---|
-| Networking | VPC, 3 public + 3 private subnets, IGW, NAT GW, S3 VPC endpoint |
-| Database | Aurora PostgreSQL 17 Serverless v2 cluster + 1 instance |
-| IDE | EC2 (m5.large, AL2023) running code-server behind CloudFront |
-| API | API Gateway HTTP API (JWT auth via Cognito) → Lambda monolith |
-| Auth | Cognito User Pool + Identity Pool |
-| Frontend | S3 + CloudFront distribution |
-| Secrets | Secrets Manager (DB creds, VSCode password, test user password) |
-| Lambda Layers | psycopg2-binary + requests (built at deploy time) |
-| Support | Lab support Lambda for bootstrap orchestration |
-
----
-
-## File Structure
+> Built with **AWS Strands Agents**, **Amazon Aurora PostgreSQL**, **Amazon Bedrock**, and **MCP (Model Context Protocol)**
 
 ```
-electrify-terraform/
-├── providers.tf        # Terraform & AWS provider config
-├── variables.tf        # Input variables
-├── locals.tf           # Local values, regional mappings, random suffix
-├── networking.tf       # VPC, subnets, IGW, NAT, route tables, S3 endpoint
-├── security_groups.tf  # Client and DB security groups
-├── s3.tf               # S3 buckets (data, lab_data, website)
-├── secrets.tf          # Secrets Manager secrets + random passwords
-├── iam.tf              # All IAM roles and instance profiles
-├── rds.tf              # Aurora cluster, parameter group, DB instance
-├── ec2_vscode.tf       # EC2 VSCode IDE instance + CloudFront distribution
-├── cognito.tf          # Cognito User Pool, Client, Identity Pool
-├── api_gateway.tf      # HTTP API, JWT authorizer, stage, routes
-├── cloudfront.tf       # Website CloudFront distribution (S3 + API origins)
-├── lambda.tf           # All Lambda functions (layer builder, monolith, support, etc.)
-└── outputs.tf          # Stack outputs
+┌─────────────────────────────────────────────────────────┐
+│                    SentinelIQ Platform                    │
+│                                                           │
+│  User Query ──► Supervisor Agent (Strands)               │
+│                      │                                    │
+│          ┌───────────┴────────────┐                      │
+│          ▼                        ▼                       │
+│  Transaction Analyst         Risk Scorer                  │
+│  Agent (Strands)             Agent (Strands)              │
+│          │                        │                       │
+│          ▼                        ▼                       │
+│   MCP Server (Lambda)      MCP Server (Lambda)            │
+│          │                        │                       │
+│          └───────────┬────────────┘                       │
+│                      ▼                                    │
+│           Amazon Aurora PostgreSQL                        │
+│           (Transactions, Accounts,                        │
+│            Risk Signals, Audit Log)                       │
+└─────────────────────────────────────────────────────────┘
 ```
 
----
+## Architecture
 
-## Prerequisites
+| Layer | Technology |
+|-------|-----------|
+| Agents | AWS Strands SDK (Python) |
+| Orchestration | Strands multi-agent supervisor pattern |
+| Database | Amazon Aurora PostgreSQL Serverless v2 |
+| Tool Protocol | Model Context Protocol (MCP) via Lambda |
+| Foundation Model | Claude 3.5 Sonnet on Amazon Bedrock |
+| Infrastructure | Terraform |
+| UI | FastAPI + Vanilla JS (dark cyberpunk theme) |
 
-- Terraform >= 1.6.0
-- AWS CLI v2 configured with appropriate credentials
-- The `aws` CLI must be available in your `PATH` (used by `local-exec` provisioners)
-- The target region must be in the supported regions list (see `locals.tf`)
+## Agents
 
----
+### 1. Transaction Analyst Agent
+- Queries Aurora via MCP tools
+- Looks up transaction history, merchant patterns, velocity checks
+- Identifies structural anomalies in spending behaviour
 
-## Usage
+### 2. Risk Scorer Agent
+- Evaluates signals: geo-anomaly, amount outlier, time-of-day, device fingerprint
+- Produces a structured risk score (0–100) with breakdown
+- Flags specific risk categories (account takeover, CNP fraud, money mule, etc.)
 
-### 1. Initialize
+### 3. Supervisor Agent
+- Receives the user's fraud investigation request
+- Dispatches sub-agents in parallel using Strands tool-calling
+- Synthesizes both outputs into a final verdict + recommended action
+
+## Quick Start
 
 ```bash
-terraform init
+# 1. Deploy infrastructure
+cd terraform
+terraform init && terraform apply -auto-approve
+
+# 2. Seed the database
+cd ../scripts
+python3 bootstrap_handler.py
+
+# 3. Run the agents
+cd ../agents
+pip install -r requirements.txt
+python supervisor.py --txn-id TXN-20240315-8821
+
+# 4. Start the UI
+cd ../ui
+uvicorn app:app --reload --port 8000
 ```
 
-### 2. Plan
+## Directory Structure
 
-```bash
-terraform plan -var="aws_region=us-east-1"
 ```
-
-### 3. Apply
-
-```bash
-terraform apply -var="aws_region=us-east-1"
+sentineliq/
+├── terraform/          # All AWS infrastructure
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── networking.tf
+│   ├── aurora.tf
+│   ├── lambda.tf
+│   ├── iam.tf
+│   └── outputs.tf
+├── mcp_server/         # Lambda MCP server (DB tools)
+│   ├── handler.py
+│   ├── tools.py
+│   ├── db.py
+│   └── requirements.txt
+├── agents/             # Strands multi-agent system
+│   ├── supervisor.py
+│   ├── transaction_analyst.py
+│   ├── risk_scorer.py
+│   ├── tools.py
+│   └── requirements.txt
+├── data/               # Seed data & schema
+│   ├── schema.sql
+│   └── seed.sql
+├── scripts/            # Utility scripts
+│   └── bootstrap_handler.py
+└── ui/                 # FastAPI + JS frontend
+    ├── app.py
+    ├── static/
+    │   └── index.html
+    └── requirements.txt
 ```
-
-### 4. Retrieve sensitive outputs
-
-```bash
-# VSCode password
-terraform output -raw vscode_password
-
-# Test user password
-terraform output -raw application_user_password
-```
-
----
-
-## Important Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `aws_region` | `us-east-1` | AWS region to deploy into |
-| `vscode_user` | `participant` | OS user for VSCode server |
-| `home_folder` | `/workshop` | Folder opened in VSCode |
-| `dev_server_port` | `9091` | Dev server port |
-| `vscode_server_port` | `9090` | VSCode server port |
-
----
-
-## Notes on Custom Resources → Terraform Equivalents
-
-CloudFormation **Custom Resources** (Lambda-backed) have been translated as follows:
-
-| CFN Custom Resource | Terraform Equivalent |
-|---|---|
-| `resBuildLambdaLayer` | `terraform_data.build_lambda_layer` (local-exec) |
-| `resCopyLambdaCode` | `terraform_data.copy_lambda_code` (local-exec) |
-| `resLabSupport` | `terraform_data.lab_support` (local-exec) |
-| `resSetUserPassword` | `terraform_data.set_user_password` (local-exec) |
-| `SecretPlaintext` / `TestUserPasswordPlaintext` | Passwords resolved directly from `random_password` resources |
-
-> **Note**: The `local-exec` provisioners invoke Lambda functions directly using the AWS CLI. This requires that `terraform apply` be run from a machine with appropriate AWS credentials and the `aws` CLI installed.
-
----
-
-## Cleanup
-
-```bash
-terraform destroy -var="aws_region=us-east-1"
-```
-
-> S3 buckets are set to `force_destroy = true`, so they will be emptied and deleted automatically.
-
----
-
-## License
-
-MIT-0 — same as the original CloudFormation template.
