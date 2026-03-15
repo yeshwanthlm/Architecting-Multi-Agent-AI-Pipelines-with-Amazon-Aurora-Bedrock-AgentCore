@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SentinelIQ — Multi-Agent Fraud Detection</title>
+<style>
+/* ── Fonts ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Reset & Base ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg0:        #06070d;
+  --bg1:        #0b0e1a;
+  --bg2:        #111626;
+  --bg3:        #181e30;
+  --bg4:        #1e263d;
+  --border:     rgba(99,120,255,0.13);
+  --border-hi:  rgba(99,120,255,0.30);
+  --accent:     #6378ff;
+  --accent-glow:rgba(99,120,255,0.20);
+  --teal:       #00d4aa;
+  --teal-dim:   rgba(0,212,170,0.12);
+  --red:        #ff4d6a;
+  --red-dim:    rgba(255,77,106,0.12);
+  --amber:      #ffb342;
+  --amber-dim:  rgba(255,179,66,0.12);
+  --green:      #3ddc84;
+  --green-dim:  rgba(61,220,132,0.12);
+  --text0:      #f0f2ff;
+  --text1:      #b8bdd6;
+  --text2:      #6e7494;
+  --text3:      #3a3f5c;
+  --font:       'Space Grotesk', system-ui, sans-serif;
+  --mono:       'JetBrains Mono', monospace;
+  --r-sm:       6px;
+  --r-md:       10px;
+  --r-lg:       14px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg0);
+  color: var(--text0);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+/* ── Layout ─────────────────────────────────────────────── */
+.layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text0);
+}
+
+.logo-sub {
+  font-size: 10px;
+  color: var(--text2);
+  font-weight: 400;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.nav { padding: 16px 12px; flex: 1; }
+
+.nav-section-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-weight: 500;
+  padding: 12px 8px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text2);
+  font-weight: 500;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover { background: var(--bg3); color: var(--text1); }
+.nav-item.active { background: var(--accent-glow); color: var(--accent); }
+.nav-item.active .nav-icon { color: var(--accent); }
+
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Main content ────────────────────────────────────────── */
+.main { overflow-y: auto; }
+
+/* ── Top bar ─────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg0);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.topbar-sub {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 1px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { filter: brightness(1.15); }
+
+.btn-ghost {
+  background: var(--bg3);
+  color: var(--text1);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border-hi); color: var(--text0); }
+
+.btn-danger {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(255,77,106,0.25);
+}
+.btn-danger:hover { background: rgba(255,77,106,0.20); }
+
+/* ── Page ────────────────────────────────────────────────── */
+.page { padding: 28px; display: none; }
+.page.active { display: block; }
+
+/* ── Stat cards ─────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.stat-card.red::before    { background: var(--red); }
+.stat-card.amber::before  { background: var(--amber); }
+.stat-card.teal::before   { background: var(--teal); }
+.stat-card.accent::before { background: var(--accent); }
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.stat-card.red    .stat-value { color: var(--red); }
+.stat-card.amber  .stat-value { color: var(--amber); }
+.stat-card.teal   .stat-value { color: var(--teal); }
+.stat-card.accent .stat-value { color: var(--accent); }
+
+.stat-sub {
+  font-size: 11.5px;
+  color: var(--text2);
+  margin-top: 6px;
+}
+
+/* ── Section header ─────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.section-meta {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* ── Table ───────────────────────────────────────────────── */
+.table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead tr {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+  cursor: pointer;
+}
+
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg3); }
+
+td {
+  padding: 12px 16px;
+  color: var(--text1);
+  vertical-align: middle;
+}
+
+td.mono { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+td.name { color: var(--text0); font-weight: 500; }
+td.amt  { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text0); }
+
+/* ── Badges ─────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-critical { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,77,106,0.2); }
+.badge-high     { background: var(--amber-dim);  color: var(--amber); border: 1px solid rgba(255,179,66,0.2); }
+.badge-medium   { background: rgba(99,120,255,0.12); color: var(--accent); border: 1px solid rgba(99,120,255,0.2); }
+.badge-low      { background: var(--green-dim);  color: var(--green); border: 1px solid rgba(61,220,132,0.2); }
+.badge-teal     { background: var(--teal-dim);   color: var(--teal);  border: 1px solid rgba(0,212,170,0.2); }
+.badge-gray     { background: var(--bg4);        color: var(--text2); border: 1px solid var(--border); }
+
+/* ── Score bar ───────────────────────────────────────────── */
+.score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.score-bar {
+  height: 4px; border-radius: 2px;
+  background: var(--bg4); width: 70px; overflow: hidden; flex-shrink: 0;
+}
+.score-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.6s ease;
+}
+.score-fill.critical { background: var(--red); }
+.score-fill.high     { background: var(--amber); }
+.score-fill.medium   { background: var(--accent); }
+.score-fill.low      { background: var(--green); }
+.score-num { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+
+/* ── Investigation panel ─────────────────────────────────── */
+.investigate-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 20px;
+  margin-top: 4px;
+}
+
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg3);
+}
+
+.panel-title { font-size: 13px; font-weight: 600; }
+.panel-body  { padding: 20px; }
+
+/* ── Transaction selector ────────────────────────────────── */
+.txn-list { display: flex; flex-direction: column; gap: 8px; }
+
+.txn-item {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--bg3);
+}
+
+.txn-item:hover  { border-color: var(--border-hi); }
+.txn-item.active { border-color: var(--accent); background: var(--accent-glow); }
+
+.txn-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.txn-item-id   { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+.txn-item-amt  { font-size: 14px; font-weight: 700; color: var(--text0); }
+.txn-item-meta { font-size: 11.5px; color: var(--text2); }
+
+/* ── Agent timeline ──────────────────────────────────────── */
+.agent-timeline { display: flex; flex-direction: column; gap: 0; }
+
+.agent-step {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.agent-step:last-child { padding-bottom: 0; }
+
+.agent-step::before {
+  content: '';
+  position: absolute;
+  left: 15px; top: 32px; bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.agent-step:last-child::before { display: none; }
+
+.step-icon-wrap {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  background: var(--bg3);
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.step-icon-wrap.running {
+  border-color: var(--accent);
+  animation: spin-border 1.2s linear infinite;
+}
+
+@keyframes spin-border {
+  to { box-shadow: 0 0 0 2px var(--accent-glow), 0 0 12px var(--accent-glow); }
+}
+
+.step-icon-wrap.done    { border-color: var(--green); background: var(--green-dim); }
+.step-icon-wrap.error   { border-color: var(--red);   background: var(--red-dim); }
+
+.step-content { flex: 1; min-width: 0; padding-top: 4px; }
+
+.step-name    { font-size: 13px; font-weight: 600; }
+.step-desc    { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.step-time    { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+.step-output {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.7;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+
+.step-output.visible { display: block; }
+
+/* ── Verdict card ────────────────────────────────────────── */
+.verdict-card {
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  display: none;
+}
+
+.verdict-card.visible { display: block; }
+
+.verdict-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.verdict-score-ring {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+
+.verdict-score-ring.critical { background: var(--red-dim);   color: var(--red);   border: 2px solid rgba(255,77,106,0.4); }
+.verdict-score-ring.high     { background: var(--amber-dim);  color: var(--amber); border: 2px solid rgba(255,179,66,0.4); }
+.verdict-score-ring.medium   { background: var(--accent-glow);color: var(--accent);border: 2px solid rgba(99,120,255,0.4); }
+.verdict-score-ring.low      { background: var(--green-dim);  color: var(--green); border: 2px solid rgba(61,220,132,0.4); }
+
+.verdict-label { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.verdict-label.critical { color: var(--red); }
+.verdict-label.high     { color: var(--amber); }
+.verdict-label.medium   { color: var(--accent); }
+.verdict-label.low      { color: var(--green); }
+
+.verdict-action-badge {
+  margin-left: auto;
+  padding: 8px 18px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.verdict-text {
+  font-size: 13px;
+  color: var(--text1);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* ── Category scores ─────────────────────────────────────── */
+.category-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cat-item {
+  background: var(--bg3);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cat-label {
+  font-size: 11px;
+  color: var(--text2);
+  text-transform: capitalize;
+  flex: 1;
+  font-weight: 500;
+}
+
+.cat-score {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ── Audit log ───────────────────────────────────────────── */
+.audit-entries { display: flex; flex-direction: column; gap: 8px; }
+
+.audit-entry {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.audit-agent-pill {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.audit-agent-pill.supervisor   { background: var(--accent-glow); color: var(--accent); }
+.audit-agent-pill.analyst      { background: var(--teal-dim);    color: var(--teal); }
+.audit-agent-pill.risk-scorer  { background: var(--amber-dim);   color: var(--amber); }
+
+.audit-action { font-size: 12.5px; color: var(--text1); }
+.audit-input  { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.audit-time   { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+/* ── Risk signals ────────────────────────────────────────── */
+.signal-list { display: flex; flex-direction: column; gap: 8px; }
+
+.signal-item {
+  padding: 12px 14px;
+  background: var(--bg3);
+  border-radius: var(--r-md);
+  border-left: 3px solid transparent;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.signal-item.critical { border-left-color: var(--red); }
+.signal-item.high     { border-left-color: var(--amber); }
+.signal-item.medium   { border-left-color: var(--accent); }
+.signal-item.low      { border-left-color: var(--green); }
+
+.signal-score {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 800;
+  min-width: 36px;
+  text-align: center;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.signal-item.critical .signal-score { color: var(--red); }
+.signal-item.high     .signal-score { color: var(--amber); }
+.signal-item.medium   .signal-score { color: var(--accent); }
+
+.signal-type { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.signal-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.signal-rule { font-family: var(--mono); font-size: 10.5px; color: var(--text3); margin-top: 4px; }
+
+/* ── Misc ────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text3);
+  font-size: 13px;
+}
+
+.loading-dots::after {
+  content: '...';
+  animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+}
+
+.kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+}
+
+/* ── Architecture diagram page ──────────────────────────── */
+.arch-diagram {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.arch-svg-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 32px;
+  max-width: 860px;
+  width: 100%;
+}
+
+/* ── Responsive tweaks ─────────────────────────────────────*/
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .investigate-grid { grid-template-columns: 1fr; }
+  .category-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🛡</div>
+        <div>
+          <div class="logo-text">SentinelIQ</div>
+          <div class="logo-sub">Fraud Intelligence</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section-label">Operations</div>
+      <button class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">⬛</span> Dashboard
+      </button>
+      <button class="nav-item" onclick="showPage('cases')">
+        <span class="nav-icon">📋</span> Cases
+        <span class="nav-badge" id="badge-cases">3</span>
+      </button>
+      <button class="nav-item" onclick="showPage('transactions')">
+        <span class="nav-icon">⚡</span> Transactions
+      </button>
+
+      <div class="nav-section-label">AI Agents</div>
+      <button class="nav-item" onclick="showPage('investigate')">
+        <span class="nav-icon">🤖</span> Investigate
+      </button>
+      <button class="nav-item" onclick="showPage('audit')">
+        <span class="nav-icon">📜</span> Audit Log
+      </button>
+
+      <div class="nav-section-label">System</div>
+      <button class="nav-item" onclick="showPage('architecture')">
+        <span class="nav-icon">🏗</span> Architecture
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="status-dot"></span>
+      All agents operational<br>
+      <span style="color:var(--text3);font-size:10px;">Aurora · Bedrock · Strands</span>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- ── Topbar ─────────────────────────────────────────── -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="page-title">Operations Dashboard</div>
+        <div class="topbar-sub" id="page-sub">Real-time fraud monitoring · Multi-agent AI</div>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:12px;color:var(--text2);font-family:var(--mono)" id="live-time"></span>
+        <button class="btn btn-primary" onclick="showPage('investigate')">
+          ＋ New Investigation
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- DASHBOARD PAGE                                      -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card red">
+          <div class="stat-label">Open Cases</div>
+          <div class="stat-value" id="stat-open">—</div>
+          <div class="stat-sub">Requires investigation</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Critical Escalations</div>
+          <div class="stat-value" id="stat-critical">—</div>
+          <div class="stat-sub">Immediate action needed</div>
+        </div>
+        <div class="stat-card teal">
+          <div class="stat-label">Flagged (24h)</div>
+          <div class="stat-value" id="stat-flagged">—</div>
+          <div class="stat-sub">New suspicious transactions</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-label">Accounts Under Review</div>
+          <div class="stat-value" id="stat-accounts">—</div>
+          <div class="stat-sub">Monitoring active</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Active Fraud Cases</div>
+        <div class="section-meta" id="cases-count">Loading…</div>
+      </div>
+      <div class="table-wrap" id="cases-table">
+        <div class="empty-state"><span class="loading-dots">Loading</span></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-header">
+        <div class="section-title">Recently Flagged Transactions</div>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="loadFlagged()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap" id="flagged-table">
+        <div class="empty-state"><span class="loading-dots">Loading</span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CASES PAGE                                          -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-cases">
+      <div class="section-header">
+        <div class="section-title">All Fraud Cases</div>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="loadCases()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap" id="all-cases-table">
+        <div class="empty-state"><span class="loading-dots">Loading</span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- TRANSACTIONS PAGE                                   -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-transactions">
+      <div class="section-header">
+        <div class="section-title">Flagged Transactions</div>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="loadFlaggedPage()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap" id="txn-page-table">
+        <div class="empty-state"><span class="loading-dots">Loading</span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- INVESTIGATE PAGE                                    -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-investigate">
+      <div class="investigate-grid">
+
+        <!-- Left: transaction picker -->
+        <div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Select Transaction</span>
+              <span class="badge badge-teal">3 cases queued</span>
+            </div>
+            <div class="panel-body">
+              <div class="txn-list" id="txn-picker">
+                <div class="empty-state"><span class="loading-dots">Loading</span></div>
+              </div>
+              <div class="divider"></div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Or enter manually:</div>
+              <div style="display:flex;gap:8px">
+                <input id="manual-txn"
+                  style="flex:1;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;color:var(--text0);font-family:var(--mono);font-size:12px;outline:none"
+                  placeholder="TXN-YYYYMMDD-XXXX"
+                  onfocus="this.style.borderColor='var(--accent)'"
+                  onblur="this.style.borderColor='var(--border)'"
+                />
+                <button class="btn btn-primary" onclick="startInvestigationManual()">Go</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: agent pipeline -->
+        <div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">🤖 Multi-Agent Pipeline</span>
+              <span id="inv-status" style="font-size:11px;color:var(--text2)">Idle — select a transaction</span>
+            </div>
+            <div class="panel-body">
+
+              <div class="agent-timeline">
+
+                <!-- Step 1: Supervisor -->
+                <div class="agent-step" id="step-supervisor">
+                  <div class="step-icon-wrap" id="icon-supervisor">🛡</div>
+                  <div class="step-content">
+                    <div class="step-name">Supervisor Agent</div>
+                    <div class="step-desc" id="desc-supervisor">Orchestrates the investigation</div>
+                    <div class="step-time" id="time-supervisor"></div>
+                    <div class="step-output" id="out-supervisor"></div>
+                  </div>
+                </div>
+
+                <!-- Step 2: Transaction Analyst -->
+                <div class="agent-step" id="step-analyst">
+                  <div class="step-icon-wrap" id="icon-analyst">🔍</div>
+                  <div class="step-content">
+                    <div class="step-name">Transaction Analyst</div>
+                    <div class="step-desc" id="desc-analyst">Awaiting dispatch…</div>
+                    <div class="step-time" id="time-analyst"></div>
+                    <div class="step-output" id="out-analyst"></div>
+                  </div>
+                </div>
+
+                <!-- Step 3: Risk Scorer (parallel) -->
+                <div class="agent-step" id="step-scorer">
+                  <div class="step-icon-wrap" id="icon-scorer">🧠</div>
+                  <div class="step-content">
+                    <div class="step-name">Risk Scorer</div>
+                    <div class="step-desc" id="desc-scorer">Awaiting dispatch…</div>
+                    <div class="step-time" id="time-scorer"></div>
+                    <div class="step-output" id="out-scorer"></div>
+                  </div>
+                </div>
+
+                <!-- Step 4: Verdict write-back -->
+                <div class="agent-step" id="step-verdict">
+                  <div class="step-icon-wrap" id="icon-verdict">✍</div>
+                  <div class="step-content">
+                    <div class="step-name">Verdict Write-back</div>
+                    <div class="step-desc" id="desc-verdict">Awaiting synthesis…</div>
+                    <div class="step-time" id="time-verdict"></div>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Verdict card -->
+              <div class="verdict-card" id="verdict-card">
+                <div class="verdict-header">
+                  <div class="verdict-score-ring" id="verdict-ring">—</div>
+                  <div>
+                    <div class="verdict-label" id="verdict-label">—</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:3px" id="verdict-type">—</div>
+                  </div>
+                  <div class="verdict-action-badge badge" id="verdict-action">—</div>
+                </div>
+
+                <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.6px">Supervisor Analysis</div>
+                <div class="verdict-text" id="verdict-text">—</div>
+
+                <div class="divider"></div>
+
+                <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.6px">Risk Category Breakdown</div>
+                <div class="category-grid" id="category-grid"></div>
+
+                <div style="margin-top:16px;display:flex;gap:10px">
+                  <button class="btn btn-danger" onclick="alert('Account block action would be dispatched to core banking API')">⛔ Block Account</button>
+                  <button class="btn btn-ghost" onclick="alert('SAR filing workflow initiated')">📋 File SAR</button>
+                  <button class="btn btn-ghost" onclick="showPage('audit')">View Audit Log</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- AUDIT LOG PAGE                                      -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-audit">
+      <div class="section-header">
+        <div class="section-title">Agent Audit Trail</div>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="loadAudit()">↻ Refresh</button>
+      </div>
+      <div class="audit-entries" id="audit-entries">
+        <div class="empty-state"><span class="loading-dots">Loading</span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ARCHITECTURE PAGE                                   -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="page" id="page-architecture">
+      <div class="arch-diagram">
+        <div class="arch-svg-wrap">
+          <div style="font-size:15px;font-weight:700;margin-bottom:24px;text-align:center;color:var(--text0)">SentinelIQ — Multi-Agent Architecture</div>
+          <svg width="100%" viewBox="0 0 760 520" xmlns="http://www.w3.org/2000/svg" style="font-family:'Space Grotesk',sans-serif">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#6378ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+              <marker id="arr-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+              <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#ffb342" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+            </defs>
+
+            <!-- User -->
+            <rect x="310" y="20" width="140" height="50" rx="10" fill="#1e263d" stroke="#6378ff" stroke-width="1"/>
+            <text x="380" y="40" text-anchor="middle" fill="#f0f2ff" font-size="12" font-weight="600">Fraud Analyst</text>
+            <text x="380" y="56" text-anchor="middle" fill="#6e7494" font-size="10">SentinelIQ UI / CLI</text>
+
+            <!-- Arrow: User → Supervisor -->
+            <line x1="380" y1="70" x2="380" y2="114" stroke="#6378ff" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="390" y="97" fill="#6378ff" font-size="10">investigate(txn_id)</text>
+
+            <!-- Supervisor -->
+            <rect x="250" y="116" width="260" height="64" rx="10" fill="#1e1a30" stroke="#6378ff" stroke-width="1.5"/>
+            <text x="380" y="140" text-anchor="middle" fill="#f0f2ff" font-size="13" font-weight="700">🛡  Supervisor Agent</text>
+            <text x="380" y="158" text-anchor="middle" fill="#b8bdd6" font-size="10.5">Strands · Claude 3.5 Sonnet · Bedrock</text>
+            <text x="380" y="172" text-anchor="middle" fill="#6e7494" font-size="10">Orchestrates sub-agents · Synthesizes verdict</text>
+
+            <!-- Arrows: Supervisor → Analyst & Scorer (parallel) -->
+            <path d="M 310 180 L 200 232" fill="none" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#arr-teal)"/>
+            <path d="M 450 180 L 560 232" fill="none" stroke="#ffb342" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+            <text x="220" y="210" fill="#00d4aa" font-size="10">parallel dispatch</text>
+            <text x="462" y="210" fill="#ffb342" font-size="10">parallel dispatch</text>
+
+            <!-- Transaction Analyst -->
+            <rect x="80" y="234" width="210" height="60" rx="10" fill="#0a1e1a" stroke="#00d4aa" stroke-width="1.5"/>
+            <text x="185" y="257" text-anchor="middle" fill="#f0f2ff" font-size="12" font-weight="700">🔍  Transaction Analyst</text>
+            <text x="185" y="272" text-anchor="middle" fill="#b8bdd6" font-size="10">Strands · DB history · Velocity</text>
+            <text x="185" y="286" text-anchor="middle" fill="#6e7494" font-size="10">Geo · Device · Cross-account</text>
+
+            <!-- Risk Scorer -->
+            <rect x="470" y="234" width="210" height="60" rx="10" fill="#1e1800" stroke="#ffb342" stroke-width="1.5"/>
+            <text x="575" y="257" text-anchor="middle" fill="#f0f2ff" font-size="12" font-weight="700">🧠  Risk Scorer</text>
+            <text x="575" y="272" text-anchor="middle" fill="#b8bdd6" font-size="10">Strands · Signal eval · 8 categories</text>
+            <text x="575" y="286" text-anchor="middle" fill="#6e7494" font-size="10">Score 0-100 · Fraud type · Action</text>
+
+            <!-- MCP arrows -->
+            <line x1="185" y1="294" x2="185" y2="344" stroke="#00d4aa" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-teal)"/>
+            <line x1="575" y1="294" x2="575" y2="344" stroke="#ffb342" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-amber)"/>
+            <text x="155" y="322" fill="#00d4aa" font-size="10">MCP tools</text>
+            <text x="540" y="322" fill="#ffb342" font-size="10">MCP tools</text>
+
+            <!-- MCP Lambda -->
+            <rect x="80" y="346" width="210" height="50" rx="10" fill="#111626" stroke="#3a3f5c" stroke-width="1"/>
+            <text x="185" y="367" text-anchor="middle" fill="#b8bdd6" font-size="11.5" font-weight="600">⚡  MCP Server (Lambda)</text>
+            <text x="185" y="383" text-anchor="middle" fill="#6e7494" font-size="10">9 tools · JSON-RPC · IAM auth</text>
+
+            <rect x="470" y="346" width="210" height="50" rx="10" fill="#111626" stroke="#3a3f5c" stroke-width="1"/>
+            <text x="575" y="367" text-anchor="middle" fill="#b8bdd6" font-size="11.5" font-weight="600">⚡  MCP Server (Lambda)</text>
+            <text x="575" y="383" text-anchor="middle" fill="#6e7494" font-size="10">9 tools · JSON-RPC · IAM auth</text>
+
+            <!-- Lambda → Aurora arrows -->
+            <line x1="185" y1="396" x2="310" y2="438" stroke="#3a3f5c" stroke-width="1.5" marker-end="url(#arr)"/>
+            <line x1="575" y1="396" x2="450" y2="438" stroke="#3a3f5c" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- Aurora -->
+            <rect x="200" y="440" width="360" height="65" rx="10" fill="#1a1215" stroke="#6378ff" stroke-width="1.5"/>
+            <text x="380" y="463" text-anchor="middle" fill="#f0f2ff" font-size="13" font-weight="700">🗄  Amazon Aurora PostgreSQL</text>
+            <text x="380" y="479" text-anchor="middle" fill="#b8bdd6" font-size="10">accounts · transactions · risk_signals</text>
+            <text x="380" y="493" text-anchor="middle" fill="#6e7494" font-size="10">fraud_cases · agent_audit_log</text>
+
+            <!-- Supervisor verdict write-back -->
+            <path d="M 450 180 Q 720 180 720 430 Q 720 510 560 505" fill="none" stroke="#6378ff" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="700" y="310" fill="#6378ff" font-size="10" text-anchor="middle">verdict</text>
+            <text x="700" y="322" fill="#6378ff" font-size="10" text-anchor="middle">write-back</text>
+
+            <!-- Legend -->
+            <rect x="20" y="460" width="160" height="52" rx="6" fill="#0b0e1a" stroke="#3a3f5c" stroke-width="0.5"/>
+            <line x1="30" y1="474" x2="60" y2="474" stroke="#00d4aa" stroke-width="1.5"/>
+            <text x="66" y="477" fill="#6e7494" font-size="10">Analyst flow</text>
+            <line x1="30" y1="488" x2="60" y2="488" stroke="#ffb342" stroke-width="1.5"/>
+            <text x="66" y="491" fill="#6e7494" font-size="10">Scorer flow</text>
+            <line x1="30" y1="502" x2="60" y2="502" stroke="#6378ff" stroke-width="1.5" stroke-dasharray="4,3"/>
+            <text x="66" y="505" fill="#6e7494" font-size="10">MCP / Write-back</text>
+          </svg>
+
+          <div style="margin-top:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;border:1px solid var(--border);text-align:center">
+              <div style="font-size:20px;margin-bottom:6px">🤖</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text0)">AWS Strands</div>
+              <div style="font-size:11px;color:var(--text2)">Agent framework</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;border:1px solid var(--border);text-align:center">
+              <div style="font-size:20px;margin-bottom:6px">🔗</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text0)">MCP Protocol</div>
+              <div style="font-size:11px;color:var(--text2)">Tool standard</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;border:1px solid var(--border);text-align:center">
+              <div style="font-size:20px;margin-bottom:6px">🗄</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text0)">Aurora Serverless v2</div>
+              <div style="font-size:11px;color:var(--text2)">PostgreSQL 15</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;border:1px solid var(--border);text-align:center">
+              <div style="font-size:20px;margin-bottom:6px">⚡</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text0)">Claude 3.5 Sonnet</div>
+              <div style="font-size:11px;color:var(--text2)">via Amazon Bedrock</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────
+const API = window.location.origin;   // FastAPI serves from same origin
+
+// ── Navigation ─────────────────────────────────────────────
+const PAGE_META = {
+  dashboard:    { title: 'Operations Dashboard',    sub: 'Real-time fraud monitoring · Multi-agent AI' },
+  cases:        { title: 'Fraud Cases',             sub: 'All open and escalated investigations' },
+  transactions: { title: 'Flagged Transactions',    sub: 'Recent suspicious activity' },
+  investigate:  { title: 'Agent Investigation',     sub: 'Dispatch multi-agent pipeline · Strands + Bedrock' },
+  audit:        { title: 'Agent Audit Trail',        sub: 'Full explainability log for all agent actions' },
+  architecture: { title: 'System Architecture',     sub: 'SentinelIQ multi-agent design' },
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name.toLowerCase()) ||
+        b.getAttribute('onclick')?.includes(name)) b.classList.add('active');
+  });
+  const m = PAGE_META[name] || {};
+  document.getElementById('page-title').textContent = m.title || name;
+  document.getElementById('page-sub').textContent   = m.sub   || '';
+
+  if (name === 'dashboard')    { loadStats(); loadCasesTable(); loadFlagged(); }
+  if (name === 'cases')        { loadCases(); }
+  if (name === 'transactions') { loadFlaggedPage(); }
+  if (name === 'investigate')  { loadTxnPicker(); }
+  if (name === 'audit')        { loadAudit(); }
+}
+
+// ── Clock ──────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('live-time').textContent =
+    new Date().toLocaleTimeString('en-US', { hour12: false });
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Helpers ────────────────────────────────────────────────
+function riskClass(score) {
+  if (score >= 75) return 'critical';
+  if (score >= 50) return 'high';
+  if (score >= 25) return 'medium';
+  return 'low';
+}
+
+function riskBadge(score) {
+  const cls = riskClass(score);
+  return `<span class="badge badge-${cls}">${score}</span>`;
+}
+
+function scoreBar(score) {
+  const cls = riskClass(score);
+  return `<div class="score-bar-wrap">
+    <div class="score-bar"><div class="score-fill ${cls}" style="width:${score}%"></div></div>
+    <span class="score-num" style="color:var(--${cls === 'critical' ? 'red' : cls === 'high' ? 'amber' : cls === 'medium' ? 'accent' : 'green'})">${score}</span>
+  </div>`;
+}
+
+function statusBadge(s) {
+  const map = {
+    open: 'badge-medium', investigating: 'badge-high',
+    escalated: 'badge-critical', confirmed: 'badge-critical',
+    dismissed: 'badge-gray', needs_review: 'badge-high'
+  };
+  return `<span class="badge ${map[s] || 'badge-gray'}">${s}</span>`;
+}
+
+function verdictBadge(v) {
+  if (!v) return '<span class="badge badge-gray">pending</span>';
+  const map = {
+    CONFIRMED_FRAUD: 'badge-critical', LIKELY_FRAUD: 'badge-high',
+    SUSPICIOUS: 'badge-medium', LEGITIMATE: 'badge-low', NEEDS_REVIEW: 'badge-high'
+  };
+  return `<span class="badge ${map[v] || 'badge-gray'}">${v?.replace(/_/g,' ')}</span>`;
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function fmtAmt(a, c='USD') {
+  return new Intl.NumberFormat('en-US', {style:'currency', currency: c || 'USD', maximumFractionDigits:2}).format(a);
+}
+
+// ── API wrappers ───────────────────────────────────────────
+async function apiFetch(path) {
+  // For demo without live backend, return mock data
+  try {
+    const r = await fetch(`${API}${path}`);
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch {
+    return getMock(path);
+  }
+}
+
+function getMock(path) {
+  if (path.includes('/dashboard/stats'))
+    return { open_cases: 3, critical_cases: 1, flagged_24h: 5, fraud_amount_30d: 12450, accounts_under_review: 2 };
+  if (path.includes('/cases'))
+    return MOCK_CASES;
+  if (path.includes('/flagged') || path.includes('/transactions'))
+    return MOCK_TXNS;
+  if (path.includes('/audit'))
+    return MOCK_AUDIT;
+  return [];
+}
+
+// ── Mock data (mirrors the seed SQL) ──────────────────────
+const MOCK_CASES = [
+  { case_number:'CASE-2024-0041', fraud_type:'Card-Not-Present Fraud', status:'open',         risk_score:88, ai_verdict:'LIKELY_FRAUD', opened_at: new Date(Date.now()-7200000).toISOString(), customer_name:'Sarah Chen',      account_number:'ACC-100001', risk_tier:'low',      amount:4800,  currency:'USD', txn_id:'TXN-20240401-8821', txn_country:'RO', merchant_name:'LuxuryWatches.ro' },
+  { case_number:'CASE-2024-0042', fraud_type:'Account Takeover',       status:'investigating', risk_score:97, ai_verdict:'CONFIRMED_FRAUD', opened_at: new Date(Date.now()-1800000).toISOString(), customer_name:'Marcus Williams', account_number:'ACC-100002', risk_tier:'high',     amount:2200,  currency:'USD', txn_id:'TXN-20240401-9005', txn_country:'US', merchant_name:'CryptoXchange Pro' },
+  { case_number:'CASE-2024-0043', fraud_type:'Money Mule / Structuring',status:'escalated',    risk_score:99, ai_verdict:'CONFIRMED_FRAUD', opened_at: new Date(Date.now()-259200000).toISOString(), customer_name:'Kevin Zhao',      account_number:'ACC-100005', risk_tier:'critical', amount:4700,  currency:'USD', txn_id:'TXN-20240331-7703', txn_country:'NG', merchant_name:'FastCash ATM Lagos' },
+];
+
+const MOCK_TXNS = [
+  { txn_id:'TXN-20240401-8821', amount:4800, currency:'USD', merchant_name:'LuxuryWatches.ro', status:'flagged', txn_timestamp: new Date(Date.now()-7200000).toISOString(), country_code:'RO', channel:'online', is_international:true, customer_name:'Sarah Chen', account_number:'ACC-100001', risk_tier:'low', signal_count:4 },
+  { txn_id:'TXN-20240401-9005', amount:2200, currency:'USD', merchant_name:'CryptoXchange Pro', status:'flagged', txn_timestamp: new Date(Date.now()-1800000).toISOString(), country_code:'US', channel:'online', is_international:false, customer_name:'Marcus Williams', account_number:'ACC-100002', risk_tier:'high', signal_count:3 },
+  { txn_id:'TXN-20240401-9004', amount:500,  currency:'USD', merchant_name:'GiftCard Depot',    status:'flagged', txn_timestamp: new Date(Date.now()-2700000).toISOString(), country_code:'US', channel:'online', is_international:false, customer_name:'Marcus Williams', account_number:'ACC-100002', risk_tier:'high', signal_count:2 },
+  { txn_id:'TXN-20240331-7703', amount:4700, currency:'USD', merchant_name:'FastCash ATM Lagos', status:'flagged', txn_timestamp: new Date(Date.now()-259200000).toISOString(), country_code:'NG', channel:'online', is_international:true,  customer_name:'Kevin Zhao', account_number:'ACC-100005', risk_tier:'critical', signal_count:2 },
+];
+
+const MOCK_AUDIT = [
+  { session_id:'session-a1b2c3d4', agent_name:'Supervisor',          action_type:'investigation_complete', input_summary:'txn_id=TXN-20240401-8821', duration_ms:4210, created_at: new Date(Date.now()-3600000).toISOString() },
+  { session_id:'session-a1b2c3d4', agent_name:'TransactionAnalyst',  action_type:'full_analysis',          input_summary:'txn_id=TXN-20240401-8821', duration_ms:2840, created_at: new Date(Date.now()-3605000).toISOString() },
+  { session_id:'session-a1b2c3d4', agent_name:'RiskScorer',          action_type:'risk_scoring',           input_summary:'txn_id=TXN-20240401-8821', duration_ms:1730, created_at: new Date(Date.now()-3607000).toISOString() },
+];
+
+// ── Load stats ─────────────────────────────────────────────
+async function loadStats() {
+  const d = await apiFetch('/api/dashboard/stats');
+  document.getElementById('stat-open').textContent     = d.open_cases     ?? '—';
+  document.getElementById('stat-critical').textContent = d.critical_cases  ?? '—';
+  document.getElementById('stat-flagged').textContent  = d.flagged_24h     ?? '—';
+  document.getElementById('stat-accounts').textContent = d.accounts_under_review ?? '—';
+  const badge = document.getElementById('badge-cases');
+  if (badge) badge.textContent = d.open_cases || '0';
+}
+
+// ── Cases table ─────────────────────────────────────────────
+function renderCasesTable(data, targetId) {
+  const el = document.getElementById(targetId);
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No cases found</div>'; return; }
+  document.getElementById('cases-count') && (document.getElementById('cases-count').textContent = `${data.length} cases`);
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>Case</th><th>Customer</th><th>Fraud Type</th>
+      <th>Amount</th><th>Risk</th><th>Status</th><th>AI Verdict</th><th>Opened</th>
+    </tr></thead>
+    <tbody>
+      ${data.map(c => `<tr onclick="investigateTxn('${c.txn_id}','${c.case_number}')">
+        <td class="mono">${c.case_number}</td>
+        <td class="name">${c.customer_name}<br><span style="font-size:11px;color:var(--text2)">${c.account_number}</span></td>
+        <td>${c.fraud_type || '—'}</td>
+        <td class="amt">${fmtAmt(c.amount, c.currency)}</td>
+        <td>${scoreBar(c.risk_score || 0)}</td>
+        <td>${statusBadge(c.status)}</td>
+        <td>${verdictBadge(c.ai_verdict)}</td>
+        <td style="font-size:11.5px;color:var(--text2)">${fmtTime(c.opened_at)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function loadCasesTable() {
+  const data = await apiFetch('/api/cases');
+  renderCasesTable(data, 'cases-table');
+}
+
+async function loadCases() {
+  const data = await apiFetch('/api/cases?status=');
+  renderCasesTable(data, 'all-cases-table');
+}
+
+// ── Flagged transactions table ─────────────────────────────
+function renderFlaggedTable(data, targetId) {
+  const el = document.getElementById(targetId);
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No flagged transactions</div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>Txn ID</th><th>Customer</th><th>Amount</th>
+      <th>Merchant</th><th>Channel</th><th>Location</th><th>Signals</th><th>Time</th>
+    </tr></thead>
+    <tbody>
+      ${data.map(t => `<tr onclick="investigateTxn('${t.txn_id}')">
+        <td class="mono">${t.txn_id}</td>
+        <td class="name">${t.customer_name}<br>
+          <span class="badge badge-${t.risk_tier === 'critical' ? 'critical' : t.risk_tier === 'high' ? 'high' : t.risk_tier === 'medium' ? 'medium' : 'low'}" style="font-size:10px">${t.risk_tier}</span>
+        </td>
+        <td class="amt">${fmtAmt(t.amount, t.currency)}</td>
+        <td>${t.merchant_name || '—'}</td>
+        <td><span class="badge badge-gray">${t.channel}</span></td>
+        <td>${t.country_code || '—'}${t.is_international ? ' <span class="badge badge-high" style="font-size:10px">INTL</span>' : ''}</td>
+        <td><span class="badge badge-${(t.signal_count||0) >= 3 ? 'critical' : 'amber'}">${t.signal_count || 0} signals</span></td>
+        <td style="font-size:11.5px;color:var(--text2)">${fmtTime(t.txn_timestamp)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function loadFlagged() {
+  const data = await apiFetch('/api/transactions/flagged?limit=8');
+  renderFlaggedTable(data, 'flagged-table');
+}
+
+async function loadFlaggedPage() {
+  const data = await apiFetch('/api/transactions/flagged?limit=25');
+  renderFlaggedTable(data, 'txn-page-table');
+}
+
+// ── Txn picker ─────────────────────────────────────────────
+async function loadTxnPicker() {
+  const data = await apiFetch('/api/transactions/flagged?limit=6');
+  const el = document.getElementById('txn-picker');
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No flagged transactions</div>'; return; }
+  el.innerHTML = data.map(t => `
+    <div class="txn-item" onclick="investigateTxn('${t.txn_id}')">
+      <div class="txn-item-header">
+        <span class="txn-item-id">${t.txn_id}</span>
+        <span class="txn-item-amt">${fmtAmt(t.amount, t.currency)}</span>
+      </div>
+      <div class="txn-item-meta">${t.customer_name} · ${t.merchant_name} · ${t.country_code}${t.is_international ? ' 🌍' : ''}</div>
+    </div>`).join('');
+}
+
+// ── Audit log ───────────────────────────────────────────────
+async function loadAudit() {
+  const data = await apiFetch('/api/audit-log?limit=20');
+  const el = document.getElementById('audit-entries');
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No audit entries yet — run an investigation first</div>'; return; }
+  el.innerHTML = data.map(e => {
+    const agentKey = e.agent_name.toLowerCase().replace(/\s+/g,'');
+    const pillClass = agentKey.includes('supervisor') ? 'supervisor' :
+                      agentKey.includes('analyst')    ? 'analyst' : 'risk-scorer';
+    return `<div class="audit-entry">
+      <span class="audit-agent-pill ${pillClass}">${e.agent_name}</span>
+      <div>
+        <div class="audit-action">${e.action_type.replace(/_/g,' ')}</div>
+        <div class="audit-input">${e.input_summary || '—'}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="audit-time">${fmtTime(e.created_at)}</div>
+        ${e.duration_ms ? `<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${e.duration_ms}ms</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Investigation ───────────────────────────────────────────
+let activeInvestigation = null;
+
+function investigateTxn(txnId, caseNumber='') {
+  showPage('investigate');
+  // highlight picker
+  document.querySelectorAll('.txn-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('.txn-item-id')?.textContent === txnId);
+  });
+  document.getElementById('manual-txn').value = txnId;
+  startInvestigation(txnId, caseNumber);
+}
+
+function startInvestigationManual() {
+  const txnId = document.getElementById('manual-txn').value.trim();
+  if (!txnId) return;
+  startInvestigation(txnId);
+}
+
+function resetSteps() {
+  ['supervisor','analyst','scorer','verdict'].forEach(id => {
+    const icon = document.getElementById(`icon-${id}`);
+    const desc = document.getElementById(`desc-${id}`);
+    const out  = document.getElementById(`out-${id}`);
+    const time = document.getElementById(`time-${id}`);
+    if (icon) { icon.className = 'step-icon-wrap'; }
+    if (desc) desc.textContent = id === 'supervisor' ? 'Orchestrates the investigation' :
+                                  id === 'analyst'   ? 'Awaiting dispatch…' :
+                                  id === 'scorer'    ? 'Awaiting dispatch…' :
+                                                       'Awaiting synthesis…';
+    if (out)  { out.textContent = ''; out.classList.remove('visible'); }
+    if (time) time.textContent = '';
+  });
+  const vc = document.getElementById('verdict-card');
+  vc.classList.remove('visible');
+  document.getElementById('inv-status').textContent = 'Running…';
+}
+
+async function startInvestigation(txnId, caseNumber='') {
+  if (activeInvestigation) return;
+  resetSteps();
+
+  const t0 = Date.now();
+  let analystDone = false, scorerDone = false;
+
+  // ── Simulate realistic agent pipeline for demo ─────────
+  // In production this connects to the SSE endpoint:
+  //   const es = new EventSource(`${API}/api/investigate/stream`);
+
+  setStepRunning('supervisor', 'Dispatching sub-agents in parallel…');
+
+  await delay(800);
+  setStepRunning('analyst', 'Querying transaction history, velocity, cross-account links…');
+  setStepRunning('scorer',  'Loading risk signals, evaluating 8 risk categories…');
+
+  // Analyst completes
+  await delay(2200);
+  const analystFindings = getSimAnalystFindings(txnId);
+  setStepDone('analyst',
+    `Behavioural deviation: ${analystFindings.analyst_findings.behavioural_deviation.toUpperCase()}\n` +
+    `Anomalies: ${analystFindings.analyst_findings.key_anomalies.join(', ')}\n` +
+    `Velocity (1h): ${analystFindings.analyst_findings.velocity_summary}`,
+    Date.now() - t0 - 800
+  );
+
+  // Scorer completes shortly after
+  await delay(600);
+  const scorerOutput = getSimScorerOutput(txnId);
+  setStepDone('scorer',
+    `Overall risk: ${scorerOutput.overall_risk_score}/100 (${scorerOutput.risk_label})\n` +
+    `Fraud type: ${scorerOutput.fraud_type_hypothesis}\n` +
+    `Action: ${scorerOutput.recommended_action}`,
+    Date.now() - t0 - 800
+  );
+
+  // Supervisor synthesizes
+  await delay(1000);
+  setStepRunning('verdict', 'Writing verdict to Aurora fraud_cases table…');
+  await delay(700);
+  const verdict = getSimVerdict(txnId, scorerOutput, analystFindings);
+  setStepDone('supervisor', `Verdict: ${verdict.final_verdict} · Score: ${verdict.final_risk_score}/100`, Date.now() - t0);
+  setStepDone('verdict', `Wrote to DB: ${caseNumber || 'CASE-2024-NEW'} · risk_score=${verdict.final_risk_score}`, 0);
+
+  renderVerdict(verdict, scorerOutput);
+  document.getElementById('inv-status').textContent = `Complete — ${verdict.final_verdict} in ${((Date.now()-t0)/1000).toFixed(1)}s`;
+  activeInvestigation = null;
+}
+
+function setStepRunning(id, msg) {
+  const icon = document.getElementById(`icon-${id}`);
+  const desc = document.getElementById(`desc-${id}`);
+  if (icon) icon.className = 'step-icon-wrap running';
+  if (desc) desc.textContent = msg;
+}
+
+function setStepDone(id, output, ms) {
+  const icon = document.getElementById(`icon-${id}`);
+  const desc = document.getElementById(`desc-${id}`);
+  const out  = document.getElementById(`out-${id}`);
+  const time = document.getElementById(`time-${id}`);
+  if (icon) icon.className = 'step-icon-wrap done';
+  if (ms && time) time.textContent = `${ms}ms`;
+  if (out && output) { out.textContent = output; out.classList.add('visible'); }
+}
+
+function renderVerdict(verdict, scorer) {
+  const score  = verdict.final_risk_score;
+  const cls    = riskClass(score);
+  const ring   = document.getElementById('verdict-ring');
+  const label  = document.getElementById('verdict-label');
+  const type   = document.getElementById('verdict-type');
+  const action = document.getElementById('verdict-action');
+  const text   = document.getElementById('verdict-text');
+  const grid   = document.getElementById('category-grid');
+  const card   = document.getElementById('verdict-card');
+
+  ring.textContent   = score;
+  ring.className     = `verdict-score-ring ${cls}`;
+  label.textContent  = verdict.final_verdict.replace(/_/g,' ');
+  label.className    = `verdict-label ${cls}`;
+  type.textContent   = scorer.fraud_type_hypothesis || '';
+  text.textContent   = verdict.supervisor_text || '(connect to live API for full AI analysis)';
+
+  const actionMap = { BLOCK:'badge-critical', CHALLENGE:'badge-high', REVIEW:'badge-medium', ALLOW:'badge-low' };
+  action.className   = `verdict-action-badge badge ${actionMap[verdict.recommended_action] || 'badge-gray'}`;
+  action.textContent = `⚡ ${verdict.recommended_action}`;
+
+  const cats = scorer.category_scores || {};
+  grid.innerHTML = Object.entries(cats).map(([k, v]) => {
+    const c = riskClass(v);
+    const color = c === 'critical' ? 'var(--red)' : c === 'high' ? 'var(--amber)' : c === 'medium' ? 'var(--accent)' : 'var(--green)';
+    return `<div class="cat-item">
+      <div class="cat-label">${k.replace(/_/g,' ')}</div>
+      <div class="score-bar" style="width:50px"><div class="score-fill ${c}" style="width:${v}%"></div></div>
+      <div class="cat-score" style="color:${color}">${v}</div>
+    </div>`;
+  }).join('');
+
+  card.classList.add('visible');
+}
+
+// ── Simulated agent outputs (mirrors real Aurora seed data) ─
+function getSimAnalystFindings(txnId) {
+  if (txnId === 'TXN-20240401-8821') return {
+    txn_id: txnId,
+    analyst_findings: {
+      behavioural_deviation: 'critical',
+      velocity_summary: '1 txn in 60 min window (normal)',
+      key_anomalies: ['Romania IP vs US-only history', 'Unknown device', '$4,800 vs $1,299 avg', 'Blacklisted merchant category'],
+      geo_analysis: 'Account exclusively transacts in US (San Francisco). This transaction originates from Bucharest, Romania.',
+      device_analysis: 'New device fingerprint with no prior association to this account.',
+    },
+    recommended_escalation: true
+  };
+  if (txnId === 'TXN-20240401-9004' || txnId === 'TXN-20240401-9005') return {
+    txn_id: txnId,
+    analyst_findings: {
+      behavioural_deviation: 'critical',
+      velocity_summary: '5 txns / $4,200 in 45 min — 4× identical gift card purchases',
+      key_anomalies: ['Tor exit node IP', 'Gift card velocity burst', 'Immediate crypto exchange follow-up', 'Linux/TorBrowser device'],
+      geo_analysis: 'All transactions from Tor exit node — geolocation unavailable.',
+      device_analysis: 'Device is Linux/TorBrowser — not registered. Tor usage is a strong fraud indicator.',
+    },
+    recommended_escalation: true
+  };
+  return {
+    txn_id: txnId,
+    analyst_findings: {
+      behavioural_deviation: 'high',
+      velocity_summary: '3 txns in 24 hr window',
+      key_anomalies: ['International wire to high-risk entity', 'Structuring pattern detected'],
+      geo_analysis: 'Funds moving from US to Nigeria.',
+      device_analysis: 'Known device, but unusual transfer pattern.',
+    },
+    recommended_escalation: true
+  };
+}
+
+function getSimScorerOutput(txnId) {
+  if (txnId === 'TXN-20240401-8821') return {
+    overall_risk_score: 88, risk_label: 'CRITICAL', confidence: 0.91,
+    fraud_type_hypothesis: 'Card-Not-Present Fraud (compromised credentials)',
+    recommended_action: 'BLOCK',
+    category_scores: { identity_risk:90, geo_risk:95, device_risk:82, velocity_risk:20, merchant_risk:85, amount_risk:78, behavioral_risk:87, network_risk:40 }
+  };
+  if (txnId === 'TXN-20240401-9004' || txnId === 'TXN-20240401-9005') return {
+    overall_risk_score: 97, risk_label: 'CRITICAL', confidence: 0.98,
+    fraud_type_hypothesis: 'Account Takeover + Gift Card Cashing',
+    recommended_action: 'BLOCK',
+    category_scores: { identity_risk:98, geo_risk:60, device_risk:99, velocity_risk:99, merchant_risk:80, amount_risk:55, behavioral_risk:96, network_risk:75 }
+  };
+  return {
+    overall_risk_score: 99, risk_label: 'CRITICAL', confidence: 0.99,
+    fraud_type_hypothesis: 'Money Mule / Structured Transfers',
+    recommended_action: 'BLOCK',
+    category_scores: { identity_risk:70, geo_risk:85, device_risk:40, velocity_risk:90, merchant_risk:91, amount_risk:95, behavioral_risk:88, network_risk:99 }
+  };
+}
+
+function getSimVerdict(txnId, scorer, analyst) {
+  const score = scorer.overall_risk_score;
+  const verdictMap = [
+    { t: 85, v: 'CONFIRMED_FRAUD' },
+    { t: 65, v: 'LIKELY_FRAUD' },
+    { t: 45, v: 'SUSPICIOUS' },
+    { t: 20, v: 'NEEDS_REVIEW' },
+    { t:  0, v: 'LEGITIMATE' },
+  ];
+  const final_verdict = verdictMap.find(x => score >= x.t)?.v || 'NEEDS_REVIEW';
+  const textMap = {
+    'TXN-20240401-8821': `EXECUTIVE SUMMARY: Transaction TXN-20240401-8821 presents overwhelming indicators of Card-Not-Present fraud. The convergence of three independent critical signals — Romanian origin on a US-only account, an unknown device, and a high-risk blacklisted merchant — establishes near-certainty of account compromise.\n\nKEY EVIDENCE:\n• Geographic impossibility: Account holder last logged in from San Francisco 2 hours prior; this transaction originates from Bucharest, Romania.\n• Device anomaly: Zero match to any registered device in account history.\n• Amount outlier: $4,800 is 3.7× above 90-day average.\n• Merchant risk: LuxuryWatches.ro carries an 85/100 risk score.\n\nRECOMMENDED ACTIONS:\n1. Block account immediately pending customer verification\n2. Reverse transaction TXN-20240401-8821\n3. Initiate step-up authentication challenge\n4. File SAR if customer confirms compromise`,
+    'TXN-20240401-9005': `EXECUTIVE SUMMARY: Account ACC-100002 (Marcus Williams) has been fully compromised. The attack signature — Tor exit node, 4 sequential identical gift card purchases, then immediate crypto exchange conversion — is a textbook account takeover with digital cash-out.\n\nKEY EVIDENCE:\n• Tor exit node (185.220.101.47): IP is on 6 threat intelligence blocklists.\n• Velocity: 4 identical $500 gift card transactions within 7 minutes.\n• Chain: Gift cards → CryptoXchange Pro. Classic laundering chain.\n• Business account risk amplification: $2,200 crypto purchase on business account.\n\nRECOMMENDED ACTIONS:\n1. IMMEDIATE: Block account and freeze all pending transactions\n2. Reverse all 5 transactions in this burst\n3. Notify Marcus Williams via registered phone\n4. File SAR — threshold exceeded\n5. Flag IP in threat intelligence feed`,
+  };
+  return {
+    final_verdict,
+    final_risk_score: score,
+    recommended_action: scorer.recommended_action,
+    supervisor_text: textMap[txnId] || `Transaction ${txnId} shows elevated risk indicators consistent with ${scorer.fraud_type_hypothesis}. Multi-agent analysis confirms risk score of ${score}/100. Recommended action: ${scorer.recommended_action}.`,
+  };
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Boot ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPage('dashboard');
+});
+</script>
+</body>
+</html>

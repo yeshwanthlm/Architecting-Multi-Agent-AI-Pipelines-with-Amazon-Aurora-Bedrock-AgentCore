@@ -1,41 +1,39 @@
 variable "aws_region" {
-  description = "AWS region to deploy resources"
+  description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
 
-variable "vscode_user" {
-  description = "UserName for VS code-server"
+variable "environment" {
+  description = "Deployment environment"
   type        = string
-  default     = "participant"
+  default     = "demo"
 }
 
-variable "home_folder" {
-  description = "Folder to open in VS Code server"
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+variable "db_name" {
+  type    = string
+  default = "sentineliq"
+}
+
+variable "db_master_username" {
+  type      = string
+  default   = "sentinel_admin"
+  sensitive = true
+}
+
+variable "db_master_password" {
+  description = "Leave null to auto-generate"
   type        = string
-  default     = "/workshop"
+  sensitive   = true
+  default     = null
 }
 
-variable "dev_server_base_path" {
-  description = "Base path for the application to be added to Nginx sites-available list"
-  type        = string
-  default     = "app"
-}
-
-variable "dev_server_port" {
-  description = "Port for the DevServer"
-  type        = number
-  default     = 9091
-}
-
-variable "vscode_server_port" {
-  description = "Port for the VSCode server"
-  type        = number
-  default     = 9090
-}
-
-variable "instance_name" {
-  description = "VS code-server EC2 instance name"
-  type        = string
-  default     = "VSCodeServer"
+variable "bedrock_model_id" {
+  type    = string
+  default = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 }
